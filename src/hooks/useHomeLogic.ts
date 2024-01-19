@@ -1,7 +1,15 @@
-import { Mina, PublicKey, UInt64, fetchAccount } from 'o1js';
+import {
+  Experimental,
+  Field,
+  Mina,
+  PublicKey,
+  UInt64,
+  fetchAccount,
+} from 'o1js';
 import Token from '@/configs/ABIs/Erc20_mina.raw';
 import moment from 'moment';
 import Hooks from '@/configs/ABIs/Hooks';
+import { Bridge } from '@/configs/ABIs/Bridge';
 import { useState } from 'react';
 
 type ResponseAccountInfo = {
@@ -67,23 +75,29 @@ export default function useHomeLogic() {
 
     const sender = PublicKey.fromBase58(addr);
 
+    // token pubkey
     const zkAppAddress = PublicKey.fromBase58(
-      'B62qnGgFXcQv2VVDLFqvgt3cYB7TMWF8FgkvqUDoUmeNSWNL1Qf33Xq'
+      'B62qohaSdFQHsRwePtARWT8rUQMU92L5D5HWQ9pA2xUVJKHpytaW873'
     );
 
+    // bridge pubkey
     const zkBridgeAddress = PublicKey.fromBase58(
-      'B62qiiNVF3QQsdiXJ8jsRUiN6TkNisWGiEnqoJhD5j5XRVLp92Y8wou'
+      'B62qjw7APgQFKZKsufgVvoArwmpxppn7aPpmnAXXwpGPGzsX3vDQga3'
     );
 
+    // hook pubkey
     const hook = PublicKey.fromBase58(
-      'B62qjdNm8sDd9S2Zj2pfD3i85tuCk7SNjuF7J6UpPvT6pu1EqPv8Dqb'
+      'B62qj8oiQzRDzvGWS89mNkpKvufyYWMP9Uombsy73sLWBzHi9swY4a2'
     );
 
-    let sentTx;
-    console.log('compile the contract...', getTime());
+    console.log('compile the contracts...', getTime());
     await Hooks.compile();
+    await Bridge.compile();
     await Token.compile();
     const zkApp = new Token(zkAppAddress);
+    const zkBridge = new Bridge(zkBridgeAddress, zkApp.token.id);
+    console.log('compile completed', getTime());
+
     Mina.setActiveInstance(
       Mina.Network({
         // mina: 'https://proxy.berkeley.minaexplorer.com/graphql',
@@ -95,40 +109,43 @@ export default function useHomeLogic() {
       const account = await fetchAccount({
         publicKey: sender,
       });
+      // fetch token account
       await fetchAccount({
         publicKey: zkAppAddress,
       });
+
+      // fetch bridge account
+      await fetchAccount({
+        publicKey: zkBridgeAddress,
+      });
+
+      // fetch hook account
       await fetchAccount({
         publicKey: hook,
       });
-      console.log(`-account:`, getTime(), account);
+      console.log(`finish fetch accounts:`, getTime());
+
       // call update() and send transaction
       console.log('build transaction and create proof...', getTime());
-      let tx = await Mina.transaction(
-        {
-          sender: sender,
-          fee: Number(0.1) * 1e9,
-        },
-        async () => {
-          // AccountUpdate.fundNewAccount(feepayerAddress);
-
-          await zkApp.lock(
-            '0x64797030263Fa2f3be3Fb4d9b7c16FDf11e6d8E1',
-            zkBridgeAddress,
-            UInt64.from(1_000_000_000n)
-          );
-          // bridgeApp.lock(zkAppAddress, AMOUNT_TRANSFER)
-        }
-      );
+      let tx = await Mina.transaction(PublicKey.fromBase58(addr), async () => {
+        const cb = Experimental.Callback.create(zkBridge, 'checkMinMax', [
+          UInt64.from(1_000_000_000n),
+        ]);
+        await zkApp.lock(
+          Field.from('0x64797030263Fa2f3be3Fb4d9b7c16FDf11e6d8E1'),
+          zkBridgeAddress,
+          cb
+        );
+      });
       console.log(
-        '🚀 ~ file: index.tsx:57 ~ callZKTransaction ~ tx:',
+        '🚀 ~ file: index.tsx:57 ~ callZKTransaction ~ builded tx:',
         getTime(),
         tx
       );
       await tx.prove();
       const snapId = import.meta.env.REACT_APP_REQUIRED_SNAP_ID;
 
-      console.log('send transaction...', getTime());
+      console.log('sending transaction...', getTime());
       const res = await window.ethereum?.request({
         method: 'wallet_invokeSnap',
         params: {
@@ -149,12 +166,9 @@ export default function useHomeLogic() {
         getTime(),
         res
       );
-      // sentTx = await tx.sign([]).send();
     } catch (err) {
       console.log(getTime(), err);
     }
-
-    console.log('sentTx', getTime(), sentTx);
   }
 
   return callZKTransaction;
