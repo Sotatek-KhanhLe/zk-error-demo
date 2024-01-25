@@ -28,3 +28,14 @@ export default {
 - Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
 - Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
 - Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+
+## Prerequisites:
+- You have to install node 18 to install all the dependency 
+- Install metamask extendsion to your browser: https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn
+- Add this seed phase: `debris then crunch mother exact lift wait favorite print keep world weather`
+## Reproduce steps:
+- Open web debugger by pressing f12 in your keyboard, then choose the console tab
+- Click on the button "reproduce error" to see the log appear in console log
+## Note:
+- All the logic code you need for the integration lay in ```hooks/useHomeLogic.ts``` file
+- All contract built script lay in folder ```configs/ABIs```
